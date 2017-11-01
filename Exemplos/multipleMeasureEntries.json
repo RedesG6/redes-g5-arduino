@@ -1,0 +1,30 @@
+{
+  "data" : [
+    {
+      "timestamp" : 1509542942,
+      "measures" : [
+        {
+          "type" : "luminosity",
+          "value": 5
+        },
+        {
+          "type" : "temperature",
+          "value": 29.5
+        }
+      ]
+    },
+    {
+      "timestamp" : 1509572942,
+      "array" : [
+        {
+          "tipo" : "luminosidade",
+          "valor": 9
+        },
+        {
+          "tipo" : "temperatura",
+          "valor": 36.5
+        }
+      ]
+    }
+  ]
+}
