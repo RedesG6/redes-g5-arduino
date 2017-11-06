@@ -1,13 +1,9 @@
 {
-  "timestamp" : 1509542942,
-  "measures" : [
+  "data":[
     {
-      "type" : "luminosity",
-      "value": 5
-    },
-    {
-      "type" : "temperature",
-      "value": 29.5
+      "timestamp":1509542942,
+      "luminosity":5,
+      "temperature":29.5
     }
   ]
 }
