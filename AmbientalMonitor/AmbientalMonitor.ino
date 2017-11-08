@@ -9,7 +9,7 @@
 */
 #define referencePotencial 5.0 // Power source to LDR
 #define miliToVolts 100.0   // convert mV to V (Volts)
-#define timeInterval 1.0/30.0 // Time interval in minutes - minimum 1.0/60.0, due reading time
+#define timeInterval 1.0 // Time interval in minutes - minimum 1.0/60.0, due reading time
 #define millisToMinute 1000*60
 
 int ledPinBuiltin = LED_BUILTIN;
