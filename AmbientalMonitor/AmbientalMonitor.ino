@@ -7,9 +7,12 @@
   Opcionals:
   - Convert ldr reading into Lux (necessary to make a chart table with lux readings)
 */
+
+#include <ArduinoJson.h>
+
 #define referencePotencial 5.0 // Power source to LDR
 #define miliToVolts 100.0   // convert mV to V (Volts)
-#define timeInterval 1.0 // Time interval in minutes - minimum 1.0/60.0, due reading time
+#define timeInterval 1.0/12.0 // Time interval in minutes - minimum 1.0/60.0, due reading time
 #define millisToMinute 1000*60
 
 int ledPinBuiltin = LED_BUILTIN;
@@ -18,30 +21,50 @@ int ldrPin = A5;
 int lmPin = A0;
 
 void setup() {
-  Serial.begin(115200);
-  Serial.println("Hora inicial: 10:30");
+  Serial.begin(9600);
+  while (!Serial) ;
+
+  // Para desenvolvimento/controle
+//  Serial.println("Hora inicial: 10:30");
+  
   pinMode(ledPinBuiltin, OUTPUT);
   pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPinBuiltin, HIGH);
 }
 
 void loop() {
+  if (digitalRead(ledPinBuiltin == HIGH))
+    digitalWrite(ledPinBuiltin, LOW);
+  else
+    digitalWrite(ledPinBuiltin, HIGH);
 
   int ldrReading = 0;
   int luminosity = 0;
   int celsiusTemp = 0;
   int fahrenheitTemp = 0;
 
-  logReadingTime();
+//  logReadingTime();
 
   temperatureReading(celsiusTemp, fahrenheitTemp);
-  temperatureLogging(celsiusTemp, fahrenheitTemp);
+//  temperatureLogging(celsiusTemp, fahrenheitTemp);
 
   luminosityReading(ldrReading, luminosity);
   luminosityLogging(ldrReading, luminosity);
 
+  
+  JsonObject& json = buildJson(celsiusTemp, ldrReading);
+
+  json.prettyPrintTo(Serial);
+  Serial.println();
+  json.printTo(Serial);
+  Serial.println();
+
   delay(calculateDelayTime());
 }
 
+/*
+ * Para desenvolvimento/controle.
+ */
 void logReadingTime() {
   Serial.print("T+ ");
 
@@ -59,30 +82,12 @@ void logReadingTime() {
   Serial.println(" HH:mm:ss");
 }
 
-void luminosityReading(int& state, int& luminosity) {
-  state = analogRead(ldrPin);
-  Serial.print("Valor lido do LDR: ");
-  Serial.println(state);
-
-  luminosity = map(state, 0, 1023, 0, 255);
-  Serial.print("Luminosidade: ");
-  Serial.println(luminosity);
-  Serial.println();
-}
-
-void luminosityLogging(int& state, int& luminosity) {
-  analogWrite(ledPin, luminosity);
-
-  if (state > 800) {
-    digitalWrite(ledPinBuiltin, HIGH);
-    analogWrite(ledPin, 1023);
-  } else {
-    digitalWrite(ledPinBuiltin, LOW);
-    if (state < 100)
-      analogWrite(ledPin, 0);
-  }
-}
-
+/*
+ * Leitura do sensor de temperatura LM35z.
+ * 
+ * Faz 8 medidas para melhor precisão e calcula a média (ao longo de 800ms).
+ * Converte para Farenheit.
+ */
 void temperatureReading(int& celsius, int& farenheit) {
   int samples[8];
 
@@ -96,6 +101,9 @@ void temperatureReading(int& celsius, int& farenheit) {
   farenheit = (celsius * 9) / 5 + 32;
 }
 
+/*
+ * Para desenvolvimento/controle.
+ */
 void temperatureLogging(int& celsius, int& farenheit) {
   Serial.print("Temperatura: ");
   Serial.print(celsius, DEC);
@@ -103,6 +111,44 @@ void temperatureLogging(int& celsius, int& farenheit) {
   Serial.print(farenheit, DEC);
   Serial.println(" \u00B0F.");
   Serial.println();
+}
+
+/*
+ * Leitura do sensor de luminosidade. (0 ~ 1023)
+ * Baseando leitura na resistência encontrada.
+ * 
+ * Para definir uma escala em LUX, seria necessário um sensor de LUX para estabelecer uma 
+ * correlação entre as tensões e valores de LUX (que cresce em escala logaritmica).
+ */
+void luminosityReading(int& state, int& luminosity) {
+  state = analogRead(ldrPin);
+  luminosity = map(state, 0, 1023, 0, 255);
+}
+
+void luminosityLogging(int& state, int& luminosity) {
+//  Serial.print("Valor lido do LDR: ");
+//  Serial.println(state);
+//
+//  Serial.print("Luminosidade: ");
+//  Serial.println(luminosity);
+//  Serial.println();
+
+  if (state > 800)
+    analogWrite(ledPin, 1023);
+  else if (state < 100)
+    analogWrite(ledPin, 0);
+  else
+    analogWrite(ledPin, luminosity);
+}
+
+JsonObject& buildJson(int& celsius, int& luminosity) {
+  StaticJsonBuffer<300> jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+
+  root["temperature"] = celsius;
+  root["luminosity"] = luminosity;
+  
+  return root;
 }
 
 long calculateDelayTime() {
