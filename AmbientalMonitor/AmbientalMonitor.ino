@@ -1,15 +1,15 @@
 /*
-  Ambiental Monitor using luminosity and temperature sensors.
-
-  TO DO:
-  - Communicating with a rPI through serial.
-
-  Opcionals:
-  - Convert ldr reading into Lux (necessary to make a chart table with lux readings)
+ * Ambiental Monitor using luminosity and temperature sensors.
+ *
+ *  Optionals:
+ *  - Convert ldr reading into Lux (necessary to make a chart table with lux readings)
 */
+
+#include <ArduinoJson.h>
+
 #define referencePotencial 5.0 // Power source to LDR
 #define miliToVolts 100.0   // convert mV to V (Volts)
-#define timeInterval 1.0 // Time interval in minutes - minimum 1.0/60.0, due reading time
+#define timeInterval 1.0 // Time interval in minutes - minimum 1.0/30.0, due reading time
 #define millisToMinute 1000*60
 
 int ledPinBuiltin = LED_BUILTIN;
@@ -18,71 +18,44 @@ int ldrPin = A5;
 int lmPin = A0;
 
 void setup() {
-  Serial.begin(115200);
-  Serial.println("Hora inicial: 10:30");
+  Serial.begin(9600);
+  while (!Serial) ;
+
   pinMode(ledPinBuiltin, OUTPUT);
   pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPinBuiltin, HIGH);
 }
 
 void loop() {
+  if (digitalRead(ledPinBuiltin == HIGH))
+    digitalWrite(ledPinBuiltin, LOW);
+  else
+    digitalWrite(ledPinBuiltin, HIGH);
 
   int ldrReading = 0;
   int luminosity = 0;
   int celsiusTemp = 0;
   int fahrenheitTemp = 0;
 
-  logReadingTime();
-
   temperatureReading(celsiusTemp, fahrenheitTemp);
-  temperatureLogging(celsiusTemp, fahrenheitTemp);
 
   luminosityReading(ldrReading, luminosity);
   luminosityLogging(ldrReading, luminosity);
 
+  JsonObject& json = buildJson(celsiusTemp, ldrReading);
+
+  json.printTo(Serial);
+  Serial.println();
+
   delay(calculateDelayTime());
 }
 
-void logReadingTime() {
-  Serial.print("T+ ");
-
-  long segundos = millis() / 1000;
-  long minutos = segundos / 60;
-  segundos -= minutos * 60;
-  long horas = minutos / 60;
-  minutos -= horas * 60;
-
-  Serial.print(horas);
-  Serial.print(":");
-  Serial.print(minutos);
-  Serial.print(":");
-  Serial.print(segundos);
-  Serial.println(" HH:mm:ss");
-}
-
-void luminosityReading(int& state, int& luminosity) {
-  state = analogRead(ldrPin);
-  Serial.print("Valor lido do LDR: ");
-  Serial.println(state);
-
-  luminosity = map(state, 0, 1023, 0, 255);
-  Serial.print("Luminosidade: ");
-  Serial.println(luminosity);
-  Serial.println();
-}
-
-void luminosityLogging(int& state, int& luminosity) {
-  analogWrite(ledPin, luminosity);
-
-  if (state > 800) {
-    digitalWrite(ledPinBuiltin, HIGH);
-    analogWrite(ledPin, 1023);
-  } else {
-    digitalWrite(ledPinBuiltin, LOW);
-    if (state < 100)
-      analogWrite(ledPin, 0);
-  }
-}
-
+/*
+ * Leitura do sensor de temperatura LM35z.
+ *
+ * Faz 8 medidas para melhor precisão e calcula a média (ao longo de 800ms).
+ * Converte para Farenheit.
+ */
 void temperatureReading(int& celsius, int& farenheit) {
   int samples[8];
 
@@ -96,16 +69,42 @@ void temperatureReading(int& celsius, int& farenheit) {
   farenheit = (celsius * 9) / 5 + 32;
 }
 
-void temperatureLogging(int& celsius, int& farenheit) {
-  Serial.print("Temperatura: ");
-  Serial.print(celsius, DEC);
-  Serial.print(" \u00B0C, ");
-  Serial.print(farenheit, DEC);
-  Serial.println(" \u00B0F.");
-  Serial.println();
+/*
+ * LDR reading. (0~1023)
+ *
+ * To set a scale in LUX, it would be needed a LUX sensor to create a correlation between tensions
+ * and LUX values (which grows in logarithmic scale).
+ */
+void luminosityReading(int& state, int& luminosity) {
+  state = analogRead(ldrPin);
+  luminosity = map(state, 0, 1023, 0, 255);
+}
+
+/*
+ * Set the LDR reading value into a common LED connected to Arduino analog pin.
+ */
+void luminosityLogging(int& state, int& luminosity) {
+  if (state > 800)
+    analogWrite(ledPin, 1023);
+  else if (state < 150)
+    analogWrite(ledPin, 0);
+  else
+    analogWrite(ledPin, luminosity);
+}
+
+/*
+ * Serialize the parameters into a JSON file.
+ */
+JsonObject& buildJson(int& celsius, int& luminosity) {
+  StaticJsonBuffer<300> jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+
+  root["temperature"] = celsius;
+  root["luminosity"] = luminosity;
+
+  return root;
 }
 
 long calculateDelayTime() {
   return (long) (timeInterval * millisToMinute) - millis() % (long)(timeInterval * millisToMinute);
 }
-
