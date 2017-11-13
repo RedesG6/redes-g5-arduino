@@ -1,12 +1,10 @@
 {
   "data":[
     {
-      "timestamp":1509542942,
       "luminosity":5,
       "temperature":29.5
     },
     {
-      "timestamp":1509572942,
       "luminosity":9,
       "temperature":36.5
     }
