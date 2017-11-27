@@ -9,29 +9,23 @@
 
 #define referencePotencial 5.0 // Power source to LDR
 #define miliToVolts 100.0   // convert mV to V (Volts)
-#define timeInterval 1.0 // Time interval in minutes - minimum 1.0/30.0, due reading time
+#define timeInterval 1.0/12.0 // Time interval in minutes - minimum 1.0/30.0, due reading time
 #define millisToMinute 1000*60
 
-int ledPinBuiltin = LED_BUILTIN;
-int ledPin = 10;
-int ldrPin = A5;
-int lmPin = A0;
+int ledCommunicationPin = 7;
+int ledLuminosityPin = 10;
+int lightSensorPin = A5;
+int temperatureSensorPin = A0;
 
 void setup() {
   Serial.begin(9600);
   while (!Serial) ;
 
-  pinMode(ledPinBuiltin, OUTPUT);
-  pinMode(ledPin, OUTPUT);
-  digitalWrite(ledPinBuiltin, HIGH);
+  pinMode(ledCommunicationPin, OUTPUT);
+  pinMode(ledLuminosityPin, OUTPUT);
 }
 
 void loop() {
-  if (digitalRead(ledPinBuiltin == HIGH))
-    digitalWrite(ledPinBuiltin, LOW);
-  else
-    digitalWrite(ledPinBuiltin, HIGH);
-
   int ldrReading = 0;
   int luminosity = 0;
   int celsiusTemp = 0;
@@ -44,8 +38,7 @@ void loop() {
 
   JsonObject& json = buildJson(celsiusTemp, ldrReading);
 
-  json.printTo(Serial);
-  Serial.println();
+  sendData(json);
 
   delay(calculateDelayTime());
 }
@@ -60,7 +53,7 @@ void temperatureReading(int& celsius, int& farenheit) {
   int samples[8];
 
   for (int i = 0; i <= 7; i++) {
-    samples[i] = ( referencePotencial * analogRead(lmPin) * miliToVolts) / 1024.0;
+    samples[i] = ( referencePotencial * analogRead(temperatureSensorPin) * miliToVolts) / 1024.0;
     //A cada leitura, incrementa o valor da variavel celsiusTemp
     celsius = celsius + samples[i];
     delay(100);
@@ -76,7 +69,7 @@ void temperatureReading(int& celsius, int& farenheit) {
  * and LUX values (which grows in logarithmic scale).
  */
 void luminosityReading(int& state, int& luminosity) {
-  state = analogRead(ldrPin);
+  state = analogRead(lightSensorPin);
   luminosity = map(state, 0, 1023, 0, 255);
 }
 
@@ -85,11 +78,11 @@ void luminosityReading(int& state, int& luminosity) {
  */
 void luminosityLogging(int& state, int& luminosity) {
   if (state > 800)
-    analogWrite(ledPin, 1023);
+    analogWrite(ledLuminosityPin, 1023);
   else if (state < 150)
-    analogWrite(ledPin, 0);
+    analogWrite(ledLuminosityPin, 0);
   else
-    analogWrite(ledPin, luminosity);
+    analogWrite(ledLuminosityPin, luminosity);
 }
 
 /*
@@ -103,6 +96,18 @@ JsonObject& buildJson(int& celsius, int& luminosity) {
   root["luminosity"] = luminosity;
 
   return root;
+}
+
+/*
+ * Send Json object through serial port.
+ * - indicates flashing Commnunication Led
+ */
+void sendData(JsonObject& json) {
+  digitalWrite(ledCommunicationPin, HIGH);
+  json.printTo(Serial);
+  Serial.println();
+  delay(50);
+  digitalWrite(ledCommunicationPin, LOW);
 }
 
 long calculateDelayTime() {
